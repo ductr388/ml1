@@ -2,6 +2,7 @@
 install.packages("kknn")
 install.packages("dplyr")
 install.packages("ggplot2")
+install.packages("caret")
 # 1a                                                      ####
 library(kknn)
 library(dplyr)
@@ -64,24 +65,33 @@ data_8 <- data.frame(y = y,
                      fit_y = fit_y,
                      prob = prob_8)
 
+
+
 data_8 <- data_8[data_8$y == "8", ]
+head(arrange(data_8, prob))
+
+# Change colour palette to black and white
+colfunc <- colorRampPalette(c("white", "black"))
 
 plot_8 <- function(index){
   plot <- as.matrix(train[index, -65])
   plot <- matrix(plot, nrow=8, byrow=TRUE)
-  heatmap(plot, Colv=NA, Rowv=NA)
+  heatmap(plot, col=colfunc(16), Colv=NA, Rowv=NA)
 }
 
 
+# Found by reordering data in R data frame.
 # Hardest to correctly predict: 1624, 1663, and 229
 # Easiest to correctly predict: 1864 and 1811
 plot_8(1624)
 plot_8(1663)
 plot_8(229)
+
 plot_8(1864)
 plot_8(1811)
 
 # 1d                                                      ####
+
 
 fit_kknn <- function(k){
   model_kknn_train <-
@@ -95,8 +105,6 @@ fit_kknn <- function(k){
   conf_mat_train <- table(model_kknn_train$fitted.values, train$y)
   acc_train <- sum(diag(conf_mat_train)) / sum(conf_mat_train)
   miss_train <- 1-acc_train
-  
-  
   
   model_kknn_valid <-
     kknn(formula = y~.,
@@ -133,5 +141,61 @@ ggplot(result) +
 
 which(result$valid == min(result$valid))
 
+model_test_7 <- 
+  kknn(formula = y~.,
+     train = train,
+     test = test,
+     kernel = "rectangular",
+     k=7)
+
+conf_mat_test <- table(model_test_7$fitted.values, test$y)
+acc_test <- sum(diag(conf_mat_test)) / sum(conf_mat_test)
+miss_test <- 1-acc_test
+miss_test
+
+# 1e                                                      ####
+
+cross_entropy <- function(k){
+  model_kknn_valid <-
+    kknn(formula = y~.,
+         train = train,
+         test = valid,
+         kernel = "rectangular",
+         k=k)
+  
+  y <- as.integer(valid$y)
+  
+  prob <- c()
+  for(i in 1:length(y)){
+    prob[i] <- model_kknn_valid$prob[i, y[i]]
+  }
+  
+  value <- -sum(log(prob + 1e-15))
+  return(value)
+}
+
+results <- c()
+for(i in 1:30){
+  model <- cross_entropy(i)
+  results[i] <- model
+}
+plot(results)
+which(min(results) == results)
+
+# Cross entropy is the log likelihood estimation of the models?
+
+# Assignment 2                                            ####
+library(caret)
+data <- read.csv("parkinsons.csv")
+set.seed(12345) 
+n=nrow(data)
+id=sample(1:n, floor(n*0.5)) 
+train=data[id,] 
+test=data[-id,]
 
 
+
+scaler <- preProcess(train[, -c(1,3)])
+trainS <- predict(scaler,train[, -c(1,3)])
+testS <- predict(scaler,test[, -c(1,3)])
+  
