@@ -1,9 +1,10 @@
-# Assignment 1                                            ####
 install.packages("kknn")
 install.packages("dplyr")
 install.packages("ggplot2")
 install.packages("caret")
-# 1a                                                      ####
+install.packages("ggplot2")
+# Assignment 1                                            ####
+# 1.1                                                     ####
 library(kknn)
 library(dplyr)
 library(ggplot2)
@@ -27,7 +28,7 @@ valid=data[id2,]
 id3=setdiff(id1,id2)
 test=data[id3,] 
 
-# 1b                                                      ####
+# 1.2                                                     ####
 model_kknn_train <-
   kknn(formula = y~.,
      train = train,
@@ -55,7 +56,7 @@ conf_mat_test
 acc_test <- sum(diag(conf_mat_test)) / sum(conf_mat_test)
 miss_test <- 1-acc_test
 
-# 1c                                                      ####
+# 1.3                                                     ####
 y <- train$y 
 fit_y <- model_kknn_train$fitted.values
 # probabilities given from 0 to 9, index 9 = number 8.
@@ -90,7 +91,7 @@ plot_8(229)
 plot_8(1864)
 plot_8(1811)
 
-# 1d                                                      ####
+# 1.4                                                     ####
 
 
 fit_kknn <- function(k){
@@ -153,7 +154,7 @@ acc_test <- sum(diag(conf_mat_test)) / sum(conf_mat_test)
 miss_test <- 1-acc_test
 miss_test
 
-# 1e                                                      ####
+# 1.5                                                     ####
 
 cross_entropy <- function(k){
   model_kknn_valid <-
@@ -185,8 +186,11 @@ which(min(results) == results)
 # Cross entropy is the log likelihood estimation of the models?
 
 # Assignment 2                                            ####
+# 2.1                                                     ####
 library(caret)
 data <- read.csv("parkinsons.csv")
+# subject, age, sex, test_time, and total_UPDRS is not used
+data <- data[, -c(1, 2, 3, 4, 6)]
 set.seed(12345) 
 n=nrow(data)
 id=sample(1:n, floor(n*0.5)) 
@@ -194,8 +198,89 @@ train=data[id,]
 test=data[-id,]
 
 
+# Sex is a dummy variable and scaling is not done for sex. 
+scaler <- preProcess(train)
+trainS <- predict(scaler, train)
+testS  <- predict(scaler, train)
 
-scaler <- preProcess(train[, -c(1,3)])
-trainS <- predict(scaler,train[, -c(1,3)])
-testS <- predict(scaler,test[, -c(1,3)])
-  
+# 2.2                                                     ####
+# Fit the model without intercept
+lm_train <- lm(motor_UPDRS~. -1, trainS)
+MSE_train <- sum((trainS$motor_UPDRS - lm_train$fitted.values)^2)/nrow(trainS)
+
+pred_test <- predict(lm_train, testS[,-1])
+MSE_test <- sum((testS$motor_UPDRS - pred_test)^2)/nrow(testS)
+
+
+# 2.3a                                                    ####
+loglikelihood <- function(theta, sigma){
+  n <- nrow(trainS)
+  x <- trainS[, -1]
+  value <- -(n/2) * log(2*pi) - (n/2) * log(sigma^2) - (1/(2*sigma^2))*sum((x-theta)^2)
+  return(value)
+}
+loglikelihood(lm_train$coefficients, 1)
+
+
+# 2.3b                                                    ####
+ridge <- function(theta, sigma, lambda){
+  value <- loglikelihood(theta, sigma)
+  value <- value + sum((lambda*theta)^2)
+  return(value)
+}
+
+
+# 2.3c                                                    ####
+# Need to derivate log likelihood function wrt to theta and sigma??
+gradient <- function(){}
+
+ridge_opt <- function(lambda){}
+
+
+# 2.3d                                                    ####
+
+# Source https://online.stat.psu.edu/stat508/lesson/5/5.1
+df <- function(lambda){
+  X <- as.matrix(trainS[,-1])
+  value <- sum(diag(X %*% solve(t(X) %*% X + lambda*diag(ncol(X)) ) %*% t(X)))
+  return(value)
+}
+df(0) # Should be same as p, number of parameters
+df(22) # Should be less than p.
+
+# Assignment 3                                            ####
+data <- read.csv("pima-indians-diabetes.csv", header = FALSE)
+library(ggplot2)
+data$V9 <- as.factor(data$V9)
+
+# 3.1                                                     ####
+ggplot(data) +
+  geom_point(aes(x=V8, y=V2, color=V9)) +
+  theme_bw() +
+  labs(x="Age",
+       y="Plasma glucose concentration",
+       color="Diabetes") +
+  scale_color_discrete(labels=c('No', 'Yes'))
+# 3.2                                                     ####
+model <- glm(V9 ~ V2 + V8, family = binomial, data=data)
+pred_data <- predict(model, new_data = data[, c(2,8)], type="response")
+pred_data <- data.frame(pred_data)
+pred_data$pred <- ifelse(pred_data$pred_data>=0.5, 2, 1)
+pred_data$actual <- as.numeric(data$V9)
+
+miss_class <- (nrow(data) - sum(pred_data$pred == pred_data$actual))/nrow(data)
+
+plot_data <- cbind(data, pred=as.factor(pred_data$pred))
+
+ggplot(plot_data) +
+  geom_point(aes(x=V8, y=V2, color=pred)) +
+  theme_bw() + 
+  labs(x="Age",
+       y="Plasma glucose concentration",
+       color="Prediction of diabetes") +
+  scale_color_discrete(labels=c('No', 'Yes'))
+
+# To solve                                                ####
+# 2.3c
+# 2.4
+# All 3
