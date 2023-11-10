@@ -1,0 +1,277 @@
+---
+title: "Computer lab 1 block 1"
+author:
+- Sigme Cinar
+- Duc Tran
+- William Wiik
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+  word_document: default
+  html_document:
+    df_print: paged
+geometry: top=100pt,bottom=100pt,left=68pt,right=66pt
+subtitle: 732A99
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{float}
+- \usepackage{longtable}
+- \usepackage{caption}
+- \usepackage{fancyhdr}
+- \usepackage{titling}
+- \usepackage[swedish, english]{babel}
+- \renewcommand{\headrulewidth}{0pt}
+- \renewcommand{\and}{\\}
+- \pretitle{\centering\vspace{0cm}{\large Laboration report in Machine Learning
+  \par}\vspace{4cm}\Huge\textbf}
+- \posttitle{\vspace{1cm}\large\textbf{}\par}
+- \preauthor{\centering\vspace{4cm}\normalsize}
+- \postauthor{\par\vspace{3cm}}
+- \predate{\centering{\normalsize Division of Statistics and Machine Learning \\ Department
+  of Computer Science \\ Linköping University \par}}
+- \postdate{\par\vspace{2cm}}
+- \raggedbottom
+---
+
+<!-- <!-- Väljer språk till svenska för automatiska titlar -->
+<!-- \selectlanguage{swedish} -->
+
+<!-- Byter språket på figur- och tabellbeskrivningar till angivna namn -->
+\captionsetup[table]{name = Table}
+
+
+<!-- Anger sidnumreringens position -->
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\pagestyle{fancy}
+
+<!-- Tar bort sidnumrering för förteckningar och titelsidan -->
+\pagenumbering{gobble}
+
+<!-- Anger sidbrytning -->
+\clearpage
+
+<!-- Skapar en innehållsförteckning och anger djupet av rubrikerna som ska visas -->
+\setcounter{tocdepth}{3}
+\tableofcontents
+
+<!-- Anger sidbrytning -->
+\clearpage
+
+<!-- Börjar sidnumreringen på sida 1 efter att alla förteckningar visats -->
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+<!-- Börjar med kapitel 1 -->
+
+```{r options, echo=FALSE, message=FALSE}
+library(ggplot2)
+library(kknn)
+library(dplyr)
+library(knitr)
+library(cowplot)
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  fig.width = 4.5, 
+  fig.height = 3)
+```
+
+
+
+# Assignment 1. Handwritten digit recognition with K-nearest neighbors.
+
+The data in this task is from the file optdigits.csv. Data consists of 3822
+handwritten digits from 0 to 9 and are stored as images of size 8x8.
+
+## 1.1
+
+**Question:** Import the data into R and divide it into training, validation and
+test sets (50%/25%/25%) by using the partitioning principle specified in the
+lecture slides.
+
+**Answer:** The code used is presented as follows:
+
+```{r}
+# Read in data
+data <- read.csv("optdigits.csv")
+
+# Renaming the response variable and changing it to a factor variable
+data <- rename(data, y=X0.26) 
+data$y <- as.factor(data$y)
+
+# Partitioning training data (50%)
+n=dim(data)[1]
+set.seed(12345) 
+id=sample(1:n, floor(n*0.5)) 
+train=data[id,] 
+
+# Partitioning validation data (25%)
+id1=setdiff(1:n, id)
+set.seed(12345) 
+id2=sample(id1, floor(n*0.25)) 
+valid=data[id2,]
+
+# Partitioning test data (25%)
+id3=setdiff(id1,id2)
+test=data[id3,] 
+```
+
+## 1.2
+
+**Question:** Use training data to fit 30-nearest neighbor classifier with 
+function kknn() and kernel=”rectangular” from package kknn and estimate
+
+* Confusion matrices for the training and test data (use table())
+* Misclassification errors for the training and test data
+
+**Answer:** The confusion matrices for models trained on training data with k=30
+and evaluated on training data and test data are presented in table 1 and 2. 
+
+```{r}
+# kknn on training data and evaluation on training data
+model_kknn_train <-
+  kknn(formula = y~., train = train, test = train,
+     kernel = "rectangular", k=30)
+conf_mat_train <- table(train$y, model_kknn_train$fitted.values)
+acc_train <- sum(diag(conf_mat_train)) / sum(conf_mat_train)
+miss_train <- 1-acc_train
+
+# kknn on training data and evaluation on test data
+model_kknn_test <-
+  kknn(formula = y~., train = train, test = test,
+       kernel = "rectangular", k=30)
+conf_mat_test <- table(test$y, model_kknn_test$fitted.values)
+acc_test <- sum(diag(conf_mat_test)) / sum(conf_mat_test)
+miss_test <- 1-acc_test
+
+# Rows are true values, columns are model prediction
+kable(conf_mat_train, caption = "Confusion matrix for training data.")
+kable(conf_mat_test,  caption = "Confusion matrix for test data.    ")
+```
+
+The missclassification error on training data from table 1 is around 4.24% and
+on test data from table 2 is around 4.92%.
+```{r}
+miss_train
+miss_test
+```
+
+
+## 1.3
+
+**Question:** Find any 2 cases of digit “8” in the training data which were easiest 
+to classify and 3 cases that were hardest to classify (i.e. having highest and 
+lowest probabilities of the correct class). Reshape features for each of these 
+cases as matrix 8x8 and visualize the corresponding digits (by using e.g. 
+heatmap() function with parameters Colv=NA and Rowv=NA) and comment on whether
+these cases seem to be hard or easy to recognize visually.
+
+**Answer:** The code used to find the 2 digits that are hardest to classify were
+found with the code as follows
+
+```{r}
+y <- train$y 
+fit_y <- model_kknn_train$fitted.values
+# probabilities given from number 0 to 9, index 9 = number 8.
+prob_8 <- model_kknn_train$prob[, 9]
+
+# Data frame consisting of true value of y, model prediction and the models
+# probability that the number is 8. 
+data_8 <- data.frame(y = y,
+                     fit_y = fit_y,
+                     prob = prob_8)
+data_8$observation_id <- rownames(data_8)
+
+# Only observations with the label 8 is kept. 
+data_8 <- data_8[data_8$y == "8", ]
+head(arrange(data_8, prob), 2)
+```
+
+From the output, observation 1624 and 1663 were hardest to classify as 8 from 
+the model. The three observations that were easiest to identify as 8 were found with
+the code as follows
+
+```{r}
+tail(arrange(data_8, prob), 3)
+```
+
+From the output observation 1810, 1811, and 1864 were three observations that
+were easiest to identify as 8 with a probability from the model as 100%
+(in total there were 49 observations that had 100% probability).  
+
+\clearpage
+
+A function that reshapes each observation to a 8x8 cases and then visualizing
+the result in a heatmap was done with the code as follows
+
+```{r}
+# Change colour palette to black and white
+colfunc <- colorRampPalette(c("white", "black"))
+
+plot_8 <- function(index){
+  title <- paste0("Observation: ", index)
+  # Reshapes the observations to a 8x8
+  plot <- as.matrix(train[index, -65]) # Remove response variable
+  plot <- matrix(plot, nrow=8, byrow=TRUE)
+  heatmap(plot, col=colfunc(16), Colv=NA, Rowv=NA, main=title)
+}
+```
+
+The heatmaps for observations 1624 and 1663 are presented in figure 1.
+```{r, fig.show="hold", fig.align = 'center', fig.cap = "\\label{hard class} Heatmap for two observations that were hard to classify: 1624 and 1663."}
+plot_8(1624)
+plot_8(1663)
+```
+
+In figure 1, it is hard to visually recognize what number the observations 1624 
+and 1663 are. 
+
+
+The heatmaps for observations 1810, 1811, and 1864 are presented in figure 2.
+```{r, fig.show="hold", out.width="100%", fig.cap = "\\label{easy class} Heatmap for three observations that were easy to classify: 1810, 1811, and 1864."}
+plot_8(1810)
+plot_8(1811)
+plot_8(1864)
+```
+
+In figure 2, is is easy to visually recognize what number the observations 1810, 
+1811, and 1864 are. 
+
+
+
+\clearpage
+
+# Statement of Contribution
+We worked on the assignment individually for the computer labs (to be more 
+efficient when asking questions), Duc on task 1, Sigme on task 2, and William on task 3.
+We later solved all assignment individually and compared and discussed our solutions
+before dividing the task of writing the laboration report. 
+
+
+## Question 1
+
+Text written by Duc. 
+
+## Question 2
+
+Text written by Sigme.
+
+## Question 3
+
+Text written by William. 
+
+
+# Appendix 
+The code used in this laboration report are summarised in the code as follows:
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+
+
+
+
+
+
+
