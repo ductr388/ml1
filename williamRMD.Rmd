@@ -6,11 +6,11 @@ author:
 - Sigme 
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
-  html_document:
-    df_print: paged
   pdf_document:
     fig_caption: yes
     number_sections: yes
+  html_document:
+    df_print: paged
 geometry: top=100pt,bottom=100pt,left=68pt,right=66pt
 subtitle: 732A99
 header-includes:
@@ -104,6 +104,7 @@ The variables are:
 
 ```{r}
 
+# Reading data
 diabetes_df <- read.csv("pima-indians-diabetes.csv", header=FALSE)
 
 colnames(diabetes_df) <- c("times_pregnant", "plasma_glucose_conc",
@@ -145,8 +146,9 @@ ggplot(diabetes_df, aes(x = plasma_glucose_conc, y = age, color = diabetes)) +
 Do you think that Diabetes is easy to classify by a standard logistic regression model that uses these two variables as
 features? Motivate your answer.
 
-We don't think these two variables are good variables to classify Diabetes because
-there is no clear relationship between age, plasma glucose concentration with Diabetes.
+
+**Answer**
+We believe that age and plasma glucose concentration are not suitable variables for classifying diabetes because there's no clear relationship with the disease.
 
 
 ## 3.2
@@ -160,7 +162,10 @@ and compute also the training misclassification error.
 
 The probabilistic equation:
 
-$$$$
+$$p(y = 1) = \frac{1}{1 + e^{-(\theta_0 + \theta_1 \cdot \text{Plasma glucose} + \theta_2 \cdot \text{Age})}}$$
+
+$$p(y = 1) = \frac{1}{1 + e^{-(-5.91 + 0.04 \cdot \text{Plasma glucose} + 0.02 \cdot \text{Age})}}$$
+$$\hat{y} = 1 \text{ if } p(y = 1) > 0.5$$
 
 
 ```{r}
@@ -173,14 +178,24 @@ pred <- predict(model, newdata = diabetes_df, type = "response")
 # Using 0.5 as the classification threshold
 pred <- ifelse(pred > 0.5, "yes", "no")
 
+# cunfusion matrix to calculate the misclassification error
 confusion <- table(diabetes_df$diabetes, pred)
 misclass_rate <- (confusion[1,2] + confusion[2,1]) / sum(confusion)
+
+
+
+
+```
+
+```{r echo=FALSE}
 
 
 knitr::kable(as.data.frame(round(misclass_rate,2)), col.names = "Misclassification error",
              caption = "Misclassification error")
 
 ```
+
+The misclassification error is 0.26.
 
 
 
@@ -209,6 +224,13 @@ ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) +
 Comment on the quality of the classification by using these results.
 
 
+**Answer**
+
+The quality of the classification is not best, because approximately 26% of the observations in our training data are incorrectly classified by the logistic regression model.
+If we compare this figure X to the figure Y in step 3.1 we can see that the predicted values from figure X do not entirely align with the true values from figure Y.
+
+
+
 ## 3.3
 
 **Question:**
@@ -218,20 +240,13 @@ Use the model estimated in step 2 to a) report the equation of the decision boun
 
 The decision boundary equation:
 
-$$\beta_0 + \beta_1 \cdot \text{plasma glucos econc}$$
+The decision boundary occurs when the predicted probability is equal to the threshold $r$.
+
+$$\frac{1}{1 + e^{-(\theta_0 + \theta_1 \cdot \text{Plasma glucose} + \theta_2 \cdot \text{Age})}} =0.5 \Rightarrow \theta_0 + \theta_1 \cdot\text{Plasma glucose} + \theta_2 \cdot \text{Age} = 0$$
+$$ -5.91 + 0.04 \cdot \text{Plasma glucose} + 0.02 \cdot \text{Age} = 0$$
 
 ```{r}
 
-summary(model)
-
-slope <- coef(model)[2]/(-coef(model)[3])
-intercept <- coef(model)[1]/(-coef(model)[3]) 
-
-
-diabetes_df
-
-
- #coef(model)[1] + t(as.matrix(coef(model)[2:3])) %*% as.matrix(diabetes_df[,c("plasma_glucose_conc","age")])
 
 ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) +
   geom_point() +
@@ -251,13 +266,20 @@ ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) +
 
 Comment whether the decision boundary seems to catch the data distribution well.
 
+**Answer**
+
+The decision boundary appears to capture the data distribution appropriately. For instance, the cluster with Plasma glucose concentration between 75 to 150 and age 20 to 30 is correctly predicted as class "no" by the decision boundary, aligning with the actual class (figure Y). 
+However, it is notable that the boundary between classes does not show a linear pattern in figure Y, which means that
+a linear decision boundary is never going to catch the data distribution very well.
+
+
 
 ## 3.4
 
 **Question:**
 
 Make same kind of plots as in step 2 but use thresholds $r$ = 0.2 and $r$ = 0.8. By
-using these plots
+using these plots.
 
 
 ```{r}
@@ -275,7 +297,7 @@ p1 <- ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pre
       labs(colour = "Predicted values of diabetes",
            x = "Plasma glucose concentration",
            y = "Age") +
-      ggtitle("p = 0.2")
+      ggtitle("r = 0.2")
 
 
 # Using 0.8 as the classification threshold
@@ -290,7 +312,7 @@ p2 <- ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pre
       labs(colour = "Predicted values of diabetes",
            x = "Plasma glucose concentration",
            y = "Age") +
-  ggtitle("p = 0.8")
+  ggtitle("r = 0.8")
 
 
 ggarrange(p1, p2,  ncol = 1, nrow = 2)
@@ -301,6 +323,12 @@ ggarrange(p1, p2,  ncol = 1, nrow = 2)
 
 Comment on what happens with the prediction when $r$ value changes.
 
+**Answer**
+
+
+As $r$ increases, the model predict more observations as "no" for diabetes.
+Opposite, as $r$ decreases, the model predict more observations as "yes" for diabetes.
+
 ## 3.5
 
 **Question:**
@@ -308,11 +336,12 @@ Comment on what happens with the prediction when $r$ value changes.
 Perform a basis function expansion trick by computing new features $z_1 = x_1^4$,
 $z_2 = x_1^3x^2$, $z_3 = x_1^2x_2^2$, $z_4 = x_1x_2^3$, $z_5 = x_2^4$, adding them to the data set and
 then computing a logistic regression model with $y$ as target and $x_1,x_2,z_1,...,z_5$ as features.
-Create a scatterplot of the same kind as in step 2 for this model.
+Create a scatterplot of the same kind as in step 2 for this model and compute the training misclassification rate.
 
 
 ```{r}
 
+# new features
 diabetes_df$z1  <- diabetes_df$times_pregnant^4
 diabetes_df$z2  <- diabetes_df$times_pregnant^3 * diabetes_df$plasma_glucose_conc^2
 diabetes_df$z3  <- diabetes_df$times_pregnant^2 * diabetes_df$plasma_glucose_conc^2
@@ -327,6 +356,11 @@ pred <- predict(model, newdata = diabetes_df, type = "response")
 
 # Using 0.5 as the classification threshold
 pred <- ifelse(pred > 0.5, "yes", "no")
+
+# cunfusion matrix to calculate the misclassification error
+confusion <- table(diabetes_df$diabetes, pred)
+misclass_rate <- (confusion[1,2] + confusion[2,1]) / sum(confusion)
+
 
 diabetes_df_pred <- diabetes_df
 diabetes_df_pred$pred <- pred
@@ -343,16 +377,28 @@ ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) +
 ```
 
 
+```{r echo=FALSE}
+
+
+knitr::kable(as.data.frame(round(misclass_rate,2)), col.names = "Misclassification error",
+             caption = "Misclassification error")
+
+```
+
+
+The misclassification error is 0.25.
+
 **Question:**
 
-Compute the training misclassification rate. What can you say about the quality of this model compared to the previous logistic
+What can you say about the quality of this model compared to the previous logistic
 regression model? How have the basis expansion trick affected the shape of the decision boundary and the prediction accuracy?
 
 
+**Answer** 
 
+The misclassification rate is one percentage point lower than the model in 3.2, indicating a slight improvement.
 
-
-
+The decision boundary's shape is not linear, as seen in 3.4, but the data distribution of the predicted values remains very similar.
 
 
 
