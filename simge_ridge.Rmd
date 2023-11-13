@@ -102,13 +102,13 @@ RidgeOpt <- function(lambda){
 
 Formula for the degree of freedom in ridge regression is as follows:
 $$
-df(\lambda) = trace((X^TX +\lambda I)^{-1}X^TX)
+df(\lambda) = trace(X(X^TX +\lambda I)^{-1}X^T)
 $$
 ```{r}
 library(psych) 
 DF <- function(lambda){
   X <- as.matrix(trainS_x)
-  dof <- tr((solve(t(X) %*% X + lambda*diag(ncol(trainS_x)))) %*% t(X) %*% X)
+  dof <- tr(X %*% (solve(t(X) %*% X + lambda*diag(ncol(trainS_x)))) %*% t(X))
   return(dof)
 }
 ```
