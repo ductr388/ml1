@@ -66,12 +66,11 @@ header-includes:
 
 <!-- Börjar med kapitel 1 -->
 
-```{r options, echo=FALSE, message=FALSE}
+```{r options, echo=FALSE, message=FALSE, warning=FALSE}
 library(ggplot2)
 library(kknn)
 library(dplyr)
 library(knitr)
-library(cowplot)
 knitr::opts_chunk$set(
   echo = TRUE, 
   fig.width = 4.5, 
@@ -126,38 +125,60 @@ function kknn() and kernel=”rectangular” from package kknn and estimate
 * Confusion matrices for the training and test data (use table())
 * Misclassification errors for the training and test data
 
-**Answer:** The confusion matrices for models trained on training data with k=30
-and evaluated on training data and test data are presented in table 1 and 2. 
+**Answer:** The confusion matrix for the model trained on training data with k=30
+and evaluated on training data is presented in table 1. 
 
 ```{r}
 # kknn on training data and evaluation on training data
-model_kknn_train <-
-  kknn(formula = y~., train = train, test = train,
-     kernel = "rectangular", k=30)
+model_kknn_train <- kknn(formula=y~., train=train, test=train, kernel="rectangular", k=30)
 conf_mat_train <- table(train$y, model_kknn_train$fitted.values)
 acc_train <- sum(diag(conf_mat_train)) / sum(conf_mat_train)
 miss_train <- 1-acc_train
 
 # kknn on training data and evaluation on test data
-model_kknn_test <-
-  kknn(formula = y~., train = train, test = test,
-       kernel = "rectangular", k=30)
+model_kknn_test <- kknn(formula=y~., train=train, test=test, kernel="rectangular", k=30)
 conf_mat_test <- table(test$y, model_kknn_test$fitted.values)
 acc_test <- sum(diag(conf_mat_test)) / sum(conf_mat_test)
 miss_test <- 1-acc_test
 
 # Rows are true values, columns are model prediction
-kable(conf_mat_train, caption = "Confusion matrix for training data.")
-kable(conf_mat_test,  caption = "Confusion matrix for test data.    ")
+kable(conf_mat_train, caption = "Confusion matrix for training data, model
+      predictions by columns and true value by rows.")
+miss_train
 ```
 
-The missclassification error on training data from table 1 is around 4.24% and
-on test data from table 2 is around 4.92%.
+The misclassification error on training data from table 1 is around 4.24%. The 
+two number with the highest number of wrong predictions are 8 and 9, with 15 wrong 
+predictions each. The model also struggles to predict number 1 and 5 where both had 
+14 wrong predictions. Examining the most common misclassification, the number 5 was
+predicted as 9 a total of eleven times and the number 8 was predicted as 1 a total
+of ten times.
+
+The easiest numbers to predict are 0 and 6. For 0 the model correctly predicted 
+177 out of 178 numbers and did not predict the number 0 for any other number. 
+For the number 6, the model correctly predicted all 200 numbers, but it did however
+predict six other numbers as 6 incorrectly.
+
+The confusion matrix for the model trained on training data with k=30
+and evaluated on test data is presented in table 2. 
+
 ```{r}
-miss_train
+kable(conf_mat_test, caption = "Confusion matrix for test data, model
+      predictions by columns and true value by rows.")
 miss_test
 ```
 
+The misclassification error on test data from table 2 is around 4.92%. The two 
+number with the highest number of wrong predictions are 4 and 5. The number 4 had
+ten wrong predictions and the number 5 had eight wrong predictions. 
+
+The easiest numbers to predict are 0 and 6. For 0 the model correctly predicted 
+97 out of 98 number and the misclassification was as number 6.  
+For the number 6, the model correctly predicted all 94 numbers, but it did however
+predict four times for other numbers as 6 incorrectly.
+
+The overall prediction quality from the model is good, especially for the numbers
+0 and 6. 
 
 ## 1.3
 
@@ -179,9 +200,7 @@ prob_8 <- model_kknn_train$prob[, 9]
 
 # Data frame consisting of true value of y, model prediction and the models
 # probability that the number is 8. 
-data_8 <- data.frame(y = y,
-                     fit_y = fit_y,
-                     prob = prob_8)
+data_8 <- data.frame(y = y, fit_y = fit_y, prob = prob_8)
 data_8$observation_id <- rownames(data_8)
 
 # Only observations with the label 8 is kept. 
@@ -201,8 +220,6 @@ From the output observation 1810, 1811, and 1864 were three observations that
 were easiest to identify as 8 with a probability from the model as 100%
 (in total there were 49 observations that had 100% probability).  
 
-\clearpage
-
 A function that reshapes each observation to a 8x8 cases and then visualizing
 the result in a heatmap was done with the code as follows
 
@@ -211,33 +228,201 @@ the result in a heatmap was done with the code as follows
 colfunc <- colorRampPalette(c("white", "black"))
 
 plot_8 <- function(index){
-  title <- paste0("Observation: ", index)
+  title <- paste0("Obs: ", index)
   # Reshapes the observations to a 8x8
   plot <- as.matrix(train[index, -65]) # Remove response variable
   plot <- matrix(plot, nrow=8, byrow=TRUE)
-  heatmap(plot, col=colfunc(16), Colv=NA, Rowv=NA, main=title)
+  heatmap(plot, col=colfunc(16), Colv=NA, Rowv=NA, main=title, margins=c(2,2))
 }
 ```
 
 The heatmaps for observations 1624 and 1663 are presented in figure 1.
-```{r, fig.show="hold", fig.align = 'center', fig.cap = "\\label{hard class} Heatmap for two observations that were hard to classify: 1624 and 1663."}
+```{r, fig.show="hold", fig.width= 3, fig.align = 'center', fig.cap = "\\label{hard class} Heatmap for two observations that were hard to classify: 1624 and 1663."}
 plot_8(1624)
 plot_8(1663)
 ```
+
+\clearpage
 
 In figure 1, it is hard to visually recognize what number the observations 1624 
 and 1663 are. 
 
 
 The heatmaps for observations 1810, 1811, and 1864 are presented in figure 2.
-```{r, fig.show="hold", out.width="100%", fig.cap = "\\label{easy class} Heatmap for three observations that were easy to classify: 1810, 1811, and 1864."}
+```{r, fig.show="hold", fig.align = 'left', fig.width= 3, fig.cap = "\\label{easy class} Heatmap for three observations that were easy to classify: 1810, 1811, and 1864."}
 plot_8(1810)
 plot_8(1811)
 plot_8(1864)
 ```
 
-In figure 2, is is easy to visually recognize what number the observations 1810, 
-1811, and 1864 are. 
+In figure 2, is is easy to visually recognize that observations 1810, 1811, and 
+1864 are of the number 8.
+
+
+## 1.4
+
+**Question:** Fit a K-nearest neighbor classifiers to the training data for 
+different values of $K=1,2,...,30$ and plot the dependence of the training and 
+validation misclassification errors on the value of K (in the same plot).
+How does the model complexity change when K increases and how does it affect 
+the training and validation errors? Report the optimal $k$ according to this plot. 
+Finally, estimate the test error for the model having the optimal K, compare it 
+with the training and validation errors and make necessary conclusions about the
+model quality.
+
+**Answer:** The code to create K-nearest neighbor clasifiers for different k and
+the misclassification error on training and validation is as follows
+
+```{r}
+fit_kknn <- function(k){
+  model_kknn_train <- kknn(formula=y~., train=train, test=train, kernel="rectangular", k=k)
+  # Confusion matrix for train data
+  conf_mat_train <- table(model_kknn_train$fitted.values, train$y)
+  acc_train <- sum(diag(conf_mat_train)) / sum(conf_mat_train)
+  # Missclassification for training data
+  miss_train <- 1-acc_train
+  
+  model_kknn_valid <- kknn(formula=y~., train=train, test=valid, kernel="rectangular", k=k)
+  # Confusion matrix for validation data
+  conf_mat_valid <- table(model_kknn_valid$fitted.values, valid$y)
+  acc_valid <- sum(diag(conf_mat_valid)) / sum(conf_mat_valid)
+  # Missclassification for validation data
+  miss_valid <- 1-acc_valid
+  
+  result <- c(miss_train, miss_valid)
+  return(result)
+}
+
+# Missclassification for k=1,...,30 for training and validation data
+result <- data.frame(train = 0, valid = 0)
+for(i in 1:30){
+  model <- fit_kknn(i)
+  result[i,1] <- model[1]
+  result[i,2] <- model[2]
+}
+result$index <- 1:30
+```
+
+The plot showing the dependence of misclassification error for training and 
+validation data is presented in figure 3. 
+```{r, fig.cap = "\\label{comparison of k for training and validation} Misclassification errors for training and validation data for k=1,...,30 on model trained on training data."}
+ggplot(result, aes(x=index)) +
+  geom_line(aes(y=train, colour="train")) +
+  geom_point(aes(y=train, colour="train")) +
+  geom_line(aes(y=valid, colour="valid")) +
+  geom_point(aes(y=valid, colour="valid")) +
+  scale_color_manual(name = "Data",
+                     values = c("train" = "steelblue", "valid" = "indianred")) +
+  scale_x_continuous(breaks = c(seq(from=0, to=30, by=5))) +
+  scale_y_continuous(limits = c(0, 0.06)) +
+  theme_bw() +
+  labs(x = "k",
+       y = "Missclassification rate")
+```
+
+In figure 3, the model complexity is highest when k = 1 and decreases with larger k. 
+With k = 1, the prediction in the model is by the observation in training data closest
+to the value we want to predict and when k is equal to the number of observations,
+the model will always predict the same value (except situations with ties).
+The training error increases when the model complexity decreases, this is because
+the model will be less overfitted on the training data with larger k and after some
+k, the model will be underfitted. Validation error also generally increased when 
+the model complexity decreased, however at some k, the model will be between
+overfitted and underfitted which will give lowest validation error. This happened
+at k=7, which is considered to be the optimal k. 
+
+```{r}
+which(result$valid == min(result$valid))
+```
+
+With k=7, the error for the test data is calculated. The errors for training, 
+validation, and test data are compared in table 3. 
+
+```{r}
+model_test_7 <- kknn(formula = y~., train = train, test = test, kernel = "rectangular", k=7)
+
+conf_mat_test <- table(model_test_7$fitted.values, test$y)
+acc_test <- sum(diag(conf_mat_test)) / sum(conf_mat_test)
+miss_test <- 1-acc_test
+
+table_data <- cbind(training=result[7, 1], validtion=result[7, 2], test=miss_test)
+kable(table_data, digits=3, caption="Misclassification error k=7 for different data.")
+```
+
+In table 3, the error for training is the lowest, followed by validation, and 
+then test. Since the error for training is decently lower the model is a bit
+overfitted on training data. The difference between validation and test can be
+interpreted that for k=7 the error is smallest for the validation data, but it
+might not be the best since there is a bias when picking k from validation data.
+
+## 1.5
+
+**Question:** Fit K-nearest neighbor classifiers to the training data for different 
+values of $K=1,2,...,30$, compute the error for the validation data as cross-entropy
+(when computing log of probabilities add a small constant within log, e.g. 1e-15, 
+to avoid numerical problems) and plot the dependence of the validation error on 
+the value of $K$. What is the optimal $K$ value here? Assuming that response has
+multinomial distribution, why might the cross-entropy be a more suitable choice
+of the error function than the misclassification error for this problem?
+
+**Answer:** The code used to compute cross-entropy for validation data
+
+```{r, fig.cap = "\\label{}Cross-entropy error for validation data for different values of k for kknn models."}
+cross_entropy <- function(k){
+  model_kknn_valid <-
+    kknn(formula = y~.,
+         train = train,
+         test = valid,
+         kernel = "rectangular",
+         k=k)
+  
+  y <- as.integer(valid$y)
+  
+  prob <- c()
+  for(i in 1:length(y)){
+    prob[i] <- model_kknn_valid$prob[i, y[i]]
+  }
+  
+  value <- -sum(log(prob + 1e-15))
+  return(value)
+}
+
+result <- c()
+for(i in 1:30){
+  model <- cross_entropy(i)
+  result[i] <- model
+}
+```
+
+The cross-entropy for different k is presented in figure 4.
+```{r, fig.cap = "\\label{}Cross-entropy error for validation data for different values of k for kknn models."}
+plot_data <- data.frame(index=1:30, result)
+ggplot(plot_data, aes(x=index, y=result)) +
+  geom_point(color="forestgreen") +
+  geom_line(color="forestgreen") +
+  scale_x_continuous(breaks = c(seq(from=0, to=30, by=5))) +
+  theme_bw() +
+  labs(x="K",
+       y="Cross-entropy")
+which(min(result) == result)
+```
+
+From figure 4, the model with k=8 has the lowest value for cross-entropy and is 
+considered to be the best k. 
+
+If the response has multinomial distribution, the maximum likelihood estimation is:
+\begin{align}
+L(Y_i=C_1, Y_i=C_2,..., Y_i=C_m|\theta) = \prod_{i=1}^N p_\theta(Y_i=C_m)
+\end{align}
+
+where $Y_i$ is observation $i$, $N$ is number of observations, and $C_m$ is 
+class $m$.
+
+The log-likelihood of equation 1 is:
+\begin{align}
+log L(Y_i=C_1, Y_i=C_2,..., Y_i=C_m) = \sum_{i=1}^N log p_\theta(Y_i=C_m)
+\end{align}
+
 
 
 
