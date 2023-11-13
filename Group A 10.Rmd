@@ -442,6 +442,465 @@ log L(Y_i=C_1, Y_i=C_2,..., Y_i=C_m) = \sum_{i=1}^N log p_\theta(Y_i=C_m)
 
 
 
+
+\clearpage
+
+# Assignment 2
+```{r}
+df2 <- read.csv("parkinsons.csv")
+
+# Shuffle the data
+set.seed(123)
+df2 <- df2[sample(nrow(df2)), ]
+```
+
+## Question 1,2)
+```{r}
+set.seed(123)
+# Split train and test
+train_indices <- createDataPartition(df2$motor_UPDRS, p = 0.6, list = FALSE)
+train_data <- df2[train_indices, ]
+test_data <- df2[-train_indices, ]
+
+predictor_cols <- setdiff(names(train_data), "motor_UPDRS")
+scaler <- preProcess(train_data)
+trainS <- predict(scaler, train_data)
+testS <- predict(scaler, test_data)
+
+#train_sd <- apply(train_data, 2, sd)
+
+# Linear regression model
+lm_model <- lm(motor_UPDRS ~ ., data = trainS)
+
+# Predictions on the test data
+trainS_x <- trainS[, predictor_cols]
+testS_x <- testS[, predictor_cols]
+
+predS_train <- predict(lm_model, newdata = trainS_x)
+predS_test <- predict(lm_model, newdata = testS_x)
+
+mse_train <- mean((trainS$motor_UPDRS - predS_train)^2)
+mse_test <- mean((testS$motor_UPDRS - predS_test)^2)
+
+cat("Mean Squared Error (MSE) on the training data:", mse_train, "\n")
+cat("Mean Squared Error (MSE) on the test data:", mse_test, "\n")
+```
+
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, predS_test, main = "Linear Regression (Scaled Data)", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+## Question 3)
+
+```{r}
+# Define the functions
+Loglikelihood <- function(theta, std){
+  n <- nrow(trainS_x)
+  prediction <- as.matrix(trainS_x) %*% as.matrix(theta)
+  actual <- trainS$motor_UPDRS
+  res <- actual-prediction
+  likelihood <- (-(n/2) * log(2*pi*std^2) - (1/(2*std^2)) * sum(res^2))
+  return(likelihood)
+}
+
+Ridge <- function(theta, std, lambda){
+  likelihood_ridge <- -Loglikelihood(theta, std) + (lambda/2)*sum(theta^2)
+  return(likelihood_ridge)
+}
+
+#optim() function minimizes
+RidgeOpt <- function(lambda){
+  # Define a new function to optimize
+  my_fnc <- function(parameters){
+    theta <- parameters[1:(length(parameters)-1)]
+    std <- parameters[length(parameters)]
+    return(Ridge(theta, std, lambda))
+  }
+  initial_values <- c(rep(0, ncol(trainS_x)), 1)
+  
+  optimal_values <- optim(par = initial_values, fn = my_fnc, method = "BFGS")$par
+  optimal_theta <- optimal_values[1:length(predictor_cols)]
+  optimal_std <- optimal_values[length(predictor_cols) + 1]
+  optimal_lambda <- optimal_values[length(optimal_values)]
+  
+  result_list <- list(theta = optimal_theta, std = optimal_std, lambda = optimal_lambda)
+  return(result_list)
+}
+```
+
+Formula for the degree of freedom in ridge regression is as follows:
+$$
+df(\lambda) = trace(X(X^TX +\lambda I)^{-1}X^T)
+$$
+```{r}
+library(psych) 
+DF <- function(lambda){
+  X <- as.matrix(trainS_x)
+  dof <- tr(X %*% (solve(t(X) %*% X + lambda*diag(ncol(trainS_x)))) %*% t(X))
+  return(dof)
+}
+```
+
+## Question 4)
+
+```{r}
+lambda <- 1
+result_ridge_1 <- RidgeOpt(lambda)
+
+optimal_theta_1 <- result_ridge_1$theta
+optimal_std_1 <- result_ridge_1$std
+optimal_lambda_1 <- result_ridge_1$lambda
+
+ridge_pred_train_1 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_1)
+ridge_pred_test_1 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_1)
+
+mse_ridge_train_1 <- mean((trainS$motor_UPDRS - ridge_pred_train_1)^2)
+mse_ridge_test_1 <- mean((testS$motor_UPDRS - ridge_pred_test_1)^2)
+
+cat("Lambda:", lambda, "\n")
+cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_train_1, "\n")
+cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_1, "\n")
+cat("Degree of freedom:", DF(lambda), "\n")
+```
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, ridge_pred_test_1, main = "Ridge Regression, lambda = 1", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+```{r}
+lambda <- 100
+result_ridge_100 <- RidgeOpt(lambda)
+
+optimal_theta_100 <- result_ridge_100$theta
+optimal_std_100 <- result_ridge_100$std
+optimal_lambda_100 <- result_ridge_100$lambda
+
+ridge_pred_train_100 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_100)
+ridge_pred_test_100 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_100)
+
+mse_ridge_train_100 <- mean((trainS$motor_UPDRS - ridge_pred_train_100)^2)
+mse_ridge_test_100 <- mean((testS$motor_UPDRS - ridge_pred_test_100)^2)
+
+cat("Lambda:", lambda, "\n")
+cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_train_100, "\n")
+cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_100, "\n")
+cat("Degree of freedom:", DF(lambda), "\n")
+```
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, ridge_pred_test_100, main = "Ridge Regression, lambda = 100", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+```{r, fig.width=5, fig.height=4, fig.pos="H"}
+lambda <- 1000
+result_ridge_1000 <- RidgeOpt(lambda)
+
+optimal_theta_1000 <- result_ridge_1000$theta
+optimal_std_1000 <- result_ridge_1000$std
+optimal_lambda_1000 <- result_ridge_1000$lambda
+
+ridge_pred_train_1000 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_1000)
+ridge_pred_test_1000 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_1000)
+
+mse_ridge_train_1000 <- mean((trainS$motor_UPDRS - ridge_pred_train_1000)^2)
+mse_ridge_test_1000 <- mean((testS$motor_UPDRS - ridge_pred_test_1000)^2)
+
+cat("Lambda:", lambda, "\n")
+cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_train_1000, "\n")
+cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_1000, "\n")
+cat("Degree of freedom:", DF(lambda), "\n")
+```
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, ridge_pred_test_1000, main = "Ridge Regression, lambda = 1000", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+As lambda increases, the degrees of freedom decreases and the MSE increases
+
+\clearpage
+
+
+
+# Assignment 3. Logistic regression and basis function expansion
+
+## Data
+
+The data contains information about the onset of
+diabetes within 5 years in Pima Indians given medical details.
+The variables are:
+
+* Number of times pregnant
+
+* Plasma glucose concentration a 2 hours in an oral glucose tolerance test.
+
+* Diastolic blood pressure (mm Hg).
+
+* Triceps skinfold thickness (mm).
+
+* 2-Hour serum insulin (mu U/ml).
+
+* Body mass index (weight in kg/(height in m)^2).
+
+* Diabetes pedigree function.
+
+* Age (years).
+
+* Diabetes (0=no or 1=yes).
+
+
+```{r}
+
+diabetes_df <- read.csv("pima-indians-diabetes.csv", header=FALSE)
+
+colnames(diabetes_df) <- c("times_pregnant", "plasma_glucose_conc",
+                        "diastolic_blood_pressure", "triceps_skinfold_thickness",
+                        "serum_insulin","body_mass_index", "diabetes_pedigree",
+                        "age", "diabetes")
+
+diabetes_df$diabetes <- ifelse(diabetes_df$diabetes == 0, "no", "yes")
+diabetes_df$diabetes <- as.factor(diabetes_df$diabetes)
+
+
+```
+
+
+## 3.1
+
+
+**Question:** 
+Make a scatterplot showing a Plasma glucose concentration on Age where
+observations are colored by Diabetes levels.
+
+
+```{r}
+
+library(ggplot2)
+
+ggplot(diabetes_df, aes(x = plasma_glucose_conc, y = age, color = diabetes)) + 
+  geom_point() + 
+  theme_bw() + 
+  theme(axis.title.y = element_text(angle = 0,vjust = 0.5)) +
+  labs(colour = "Diabetes",
+       x = "Plasma glucose concentration",
+       y = "Age")
+
+```
+
+
+**Question:**
+Do you think that Diabetes is easy to classify by a standard logistic regression model that uses these two variables as
+features? Motivate your answer.
+
+We don't think these two variables are good variables to classify Diabetes because
+there is no clear relationship between age, plasma glucose concentration with Diabetes.
+
+
+## 3.2
+
+**Question:** 
+
+Train a logistic regression model with $y$ = Diabetes as target $x_1$ = Plasma glucose
+concentration and $x_2$ = Age as features and make a prediction for all observations
+by using $r$ = 0.5 as the classification threshold. Report the probabilistic equation of the estimated model
+and compute also the training misclassification error.
+
+The probabilistic equation:
+
+$$$$
+
+
+```{r}
+
+model <- glm(diabetes ~ plasma_glucose_conc + age, data = diabetes_df,
+             family =  "binomial")
+
+pred <- predict(model, newdata = diabetes_df, type = "response")
+
+# Using 0.5 as the classification threshold
+pred <- ifelse(pred > 0.5, "yes", "no")
+
+confusion <- table(diabetes_df$diabetes, pred)
+misclass_rate <- (confusion[1,2] + confusion[2,1]) / sum(confusion)
+
+
+knitr::kable(as.data.frame(round(misclass_rate,2)), col.names = "Misclassification error",
+             caption = "Misclassification error")
+
+```
+
+
+
+**Question:**
+
+Make a scatter plot of the same kind as in step 1 but showing the predicted values of Diabetes as a color instead.
+
+```{r}
+
+diabetes_df_pred <- diabetes_df
+diabetes_df_pred$pred <- pred
+  
+ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) + 
+  geom_point() + 
+  theme_bw() + 
+  theme(axis.title.y = element_text(angle = 0,vjust = 0.5)) +
+  labs(colour = "Predicted values of diabetes",
+       x = "Plasma glucose concentration",
+       y = "Age")
+
+
+```
+
+**Question:**
+
+Comment on the quality of the classification by using these results.
+
+
+## 3.3
+
+**Question:**
+
+Use the model estimated in step 2 to a) report the equation of the decision boundary between the two classes b) add a curve showing this boundary to the scatter plot in step 2.
+
+
+The decision boundary equation:
+
+$$\beta_0 + \beta_1 \cdot \text{plasma glucos econc}$$
+
+```{r}
+
+summary(model)
+
+slope <- coef(model)[2]/(-coef(model)[3])
+intercept <- coef(model)[1]/(-coef(model)[3]) 
+
+
+# diabetes_df < commented this, do we need it?
+
+
+ #coef(model)[1] + t(as.matrix(coef(model)[2:3])) %*% as.matrix(diabetes_df[,c("plasma_glucose_conc","age")])
+
+ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) +
+  geom_point() +
+  theme_bw() +
+ stat_function(fun = ({function(x) (-coef(model)[1] - coef(model)[2]*x)/ coef(model)[3] }),
+               size=1.5, color = "black") +
+  ylim(20,90) +
+  labs(colour = "Predicted values of diabetes",
+       x = "Plasma glucose concentration",
+       y = "Age")
+
+
+```
+
+
+**Question:**
+
+Comment whether the decision boundary seems to catch the data distribution well.
+
+
+## 3.4
+
+**Question:**
+
+Make same kind of plots as in step 2 but use thresholds $r$ = 0.2 and $r$ = 0.8. By
+using these plots
+
+
+```{r}
+library("ggpubr")
+
+# Using 0.2 as the classification threshold
+pred <- predict(model, newdata = diabetes_df, type = "response")
+pred <- ifelse(pred > 0.2, "yes", "no")
+diabetes_df_pred$pred <- pred
+
+
+p1 <- ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) +
+      geom_point() +
+      theme_bw() +
+      labs(colour = "Predicted values of diabetes",
+           x = "Plasma glucose concentration",
+           y = "Age") +
+      ggtitle("p = 0.2")
+
+
+# Using 0.8 as the classification threshold
+pred <- predict(model, newdata = diabetes_df, type = "response")
+pred <- ifelse(pred > 0.8, "yes", "no")
+diabetes_df_pred$pred <- pred
+
+
+p2 <- ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) +
+      geom_point() +
+      theme_bw() +
+      labs(colour = "Predicted values of diabetes",
+           x = "Plasma glucose concentration",
+           y = "Age") +
+  ggtitle("p = 0.8")
+
+
+ggarrange(p1, p2,  ncol = 1, nrow = 2)
+
+```
+
+**Question:**
+
+Comment on what happens with the prediction when $r$ value changes.
+
+## 3.5
+
+**Question:**
+
+Perform a basis function expansion trick by computing new features $z_1 = x_1^4$,
+$z_2 = x_1^3x^2$, $z_3 = x_1^2x_2^2$, $z_4 = x_1x_2^3$, $z_5 = x_2^4$, adding them to the data set and
+then computing a logistic regression model with $y$ as target and $x_1,x_2,z_1,...,z_5$ as features.
+Create a scatterplot of the same kind as in step 2 for this model.
+
+
+```{r}
+
+diabetes_df$z1  <- diabetes_df$times_pregnant^4
+diabetes_df$z2  <- diabetes_df$times_pregnant^3 * diabetes_df$plasma_glucose_conc^2
+diabetes_df$z3  <- diabetes_df$times_pregnant^2 * diabetes_df$plasma_glucose_conc^2
+diabetes_df$z4  <- diabetes_df$times_pregnant * diabetes_df$plasma_glucose_conc^3
+diabetes_df$z5  <- diabetes_df$plasma_glucose_conc^4
+
+
+model <- glm(diabetes ~ plasma_glucose_conc + age + z1 + z2 + z3 + z4 + z5, data = diabetes_df,
+             family =  "binomial")
+
+pred <- predict(model, newdata = diabetes_df, type = "response")
+
+# Using 0.5 as the classification threshold
+pred <- ifelse(pred > 0.5, "yes", "no")
+
+diabetes_df_pred <- diabetes_df
+diabetes_df_pred$pred <- pred
+  
+ggplot(diabetes_df_pred, aes(x = plasma_glucose_conc, y = age, color = pred)) + 
+  geom_point() + 
+  theme_bw() + 
+  theme(axis.title.y = element_text(angle = 0,vjust = 0.5)) +
+  labs(colour = "Predicted values of diabetes",
+       x = "Plasma glucose concentration",
+       y = "Age")
+
+
+```
+
+
+**Question:**
+
+Compute the training misclassification rate. What can you say about the quality of this model compared to the previous logistic
+regression model? How have the basis expansion trick affected the shape of the decision boundary and the prediction accuracy?
+
+
+
 \clearpage
 
 # Statement of Contribution
@@ -469,6 +928,8 @@ The code used in this laboration report are summarised in the code as follows:
 
 ```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
 ```
+
+
 
 
 
