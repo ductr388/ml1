@@ -447,32 +447,35 @@ log L(Y_i=C_1, Y_i=C_2,..., Y_i=C_m) = \sum_{i=1}^N log p_\theta(Y_i=C_m)
 
 # Assignment 2
 ```{r}
-df2 <- read.csv("parkinsons.csv")
-
-# Shuffle the data
-set.seed(123)
-df2 <- df2[sample(nrow(df2)), ]
+df2_init <- read.csv("parkinsons.csv")
+df2 <- df2_init[, c("motor_UPDRS", "Jitter...", "Jitter.Abs.", "Jitter.RAP", "Jitter.PPQ5","Jitter.DDP", "Shimmer", "Shimmer.dB.", "Shimmer.APQ3", "Shimmer.APQ5","Shimmer.APQ11", "Shimmer.DDA", "NHR", "HNR", "RPDE", "DFA", "PPE")]
 ```
 
-## Question 1,2)
+### Question 2.1)
 ```{r}
-set.seed(123)
 # Split train and test
-train_indices <- createDataPartition(df2$motor_UPDRS, p = 0.6, list = FALSE)
-train_data <- df2[train_indices, ]
-test_data <- df2[-train_indices, ]
+n=dim(df2)[1]
+set.seed(12345)
+
+id <- sample(1:n, floor(n*0.6))
+train_data <- df2[id,]
+test_data <- df2[-id,]
 
 predictor_cols <- setdiff(names(train_data), "motor_UPDRS")
 scaler <- preProcess(train_data)
 trainS <- predict(scaler, train_data)
 testS <- predict(scaler, test_data)
+```
 
-#train_sd <- apply(train_data, 2, sd)
-
+### Question 2.2)
+```{r}
 # Linear regression model
 lm_model <- lm(motor_UPDRS ~ ., data = trainS)
+summary(lm_model)
+```
 
-# Predictions on the test data
+```{r}
+# Predictions on the train & test data
 trainS_x <- trainS[, predictor_cols]
 testS_x <- testS[, predictor_cols]
 
@@ -492,8 +495,7 @@ plot(testS$motor_UPDRS, predS_test, main = "Linear Regression (Scaled Data)",
 abline(a = 0, b = 1, col = "red")
 ```
 
-## Question 3)
-
+### Question 2.3)
 ```{r}
 # Define the functions
 Loglikelihood <- function(theta, std){
@@ -543,8 +545,7 @@ DF <- function(lambda){
 }
 ```
 
-## Question 4)
-
+### Question 2.4)
 ```{r}
 lambda <- 1
 result_ridge_1 <- RidgeOpt(lambda)
@@ -620,7 +621,6 @@ plot(testS$motor_UPDRS, ridge_pred_test_1000, main = "Ridge Regression, lambda =
 abline(a = 0, b = 1, col = "red")
 ```
 
-As lambda increases, the degrees of freedom decreases and the MSE increases
 
 \clearpage
 

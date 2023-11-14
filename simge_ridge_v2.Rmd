@@ -1,0 +1,193 @@
+---
+title: "Ridge Regression v2"
+author: "Simge Çınar"
+date: "2023-11-14"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(psych) 
+library(caret)
+```
+
+# Question 2)
+```{r}
+df2_init <- read.csv("/Users/simgecinar/Desktop/ML_lab1/parkinsons.csv")
+#colnames(df2_init)
+df2 <- df2_init[, c("motor_UPDRS", "Jitter...", "Jitter.Abs.", "Jitter.RAP", "Jitter.PPQ5","Jitter.DDP", "Shimmer", "Shimmer.dB.", "Shimmer.APQ3", "Shimmer.APQ5","Shimmer.APQ11", "Shimmer.DDA", "NHR", "HNR", "RPDE", "DFA", "PPE")]
+```
+
+### Question 2.1)
+```{r}
+# Split train and test
+n=dim(df2)[1]
+set.seed(12345)
+
+id <- sample(1:n, floor(n*0.6))
+train_data <- df2[id,]
+test_data <- df2[-id,]
+
+predictor_cols <- setdiff(names(train_data), "motor_UPDRS")
+scaler <- preProcess(train_data)
+trainS <- predict(scaler, train_data)
+testS <- predict(scaler, test_data)
+```
+
+### Question 2.2)
+```{r}
+# Linear regression model
+lm_model <- lm(motor_UPDRS ~ ., data = trainS)
+summary(lm_model)
+```
+
+```{r}
+# Predictions on the train & test data
+trainS_x <- trainS[, predictor_cols]
+testS_x <- testS[, predictor_cols]
+
+predS_train <- predict(lm_model, newdata = trainS_x)
+predS_test <- predict(lm_model, newdata = testS_x)
+
+mse_train <- mean((trainS$motor_UPDRS - predS_train)^2)
+mse_test <- mean((testS$motor_UPDRS - predS_test)^2)
+
+cat("Mean Squared Error (MSE) on the training data:", mse_train, "\n")
+cat("Mean Squared Error (MSE) on the test data:", mse_test, "\n")
+```
+
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, predS_test, main = "Linear Regression (Scaled Data)", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+### Question 2.3)
+```{r}
+# Define the functions
+Loglikelihood <- function(theta, std){
+  n <- nrow(trainS_x)
+  prediction <- as.matrix(trainS_x) %*% as.matrix(theta)
+  actual <- trainS$motor_UPDRS
+  res <- actual-prediction
+  likelihood <- (-(n/2) * log(2*pi*std^2) - (1/(2*std^2)) * sum(res^2))
+  return(likelihood)
+}
+
+Ridge <- function(theta, std, lambda){
+  likelihood_ridge <- -Loglikelihood(theta, std) + (lambda/2)*sum(theta^2)
+  return(likelihood_ridge)
+}
+
+#optim() function minimizes
+RidgeOpt <- function(lambda){
+  # Define a new function to optimize
+  my_fnc <- function(parameters){
+    theta <- parameters[1:(length(parameters)-1)]
+    std <- parameters[length(parameters)]
+    return(Ridge(theta, std, lambda))
+  }
+  initial_values <- c(rep(0, ncol(trainS_x)), 1)
+  
+  optimal_values <- optim(par = initial_values, fn = my_fnc, method = "BFGS")$par
+  optimal_theta <- optimal_values[1:length(predictor_cols)]
+  optimal_std <- optimal_values[length(predictor_cols) + 1]
+  optimal_lambda <- optimal_values[length(optimal_values)]
+  
+  result_list <- list(theta = optimal_theta, std = optimal_std, lambda = optimal_lambda)
+  return(result_list)
+}
+```
+
+Formula for the degree of freedom in ridge regression is as follows:
+$$
+df(\lambda) = trace(X(X^TX +\lambda I)^{-1}X^T)
+$$
+```{r}
+library(psych) 
+DF <- function(lambda){
+  X <- as.matrix(trainS_x)
+  dof <- tr(X %*% (solve(t(X) %*% X + lambda*diag(ncol(trainS_x)))) %*% t(X))
+  return(dof)
+}
+```
+
+### Question 2.4)
+```{r}
+lambda <- 1
+result_ridge_1 <- RidgeOpt(lambda)
+
+optimal_theta_1 <- result_ridge_1$theta
+optimal_std_1 <- result_ridge_1$std
+optimal_lambda_1 <- result_ridge_1$lambda
+
+ridge_pred_train_1 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_1)
+ridge_pred_test_1 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_1)
+
+mse_ridge_train_1 <- mean((trainS$motor_UPDRS - ridge_pred_train_1)^2)
+mse_ridge_test_1 <- mean((testS$motor_UPDRS - ridge_pred_test_1)^2)
+
+cat("Lambda:", lambda, "\n")
+cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_train_1, "\n")
+cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_1, "\n")
+cat("Degree of freedom:", DF(lambda), "\n")
+```
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, ridge_pred_test_1, main = "Ridge Regression, lambda = 1", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+```{r}
+lambda <- 100
+result_ridge_100 <- RidgeOpt(lambda)
+
+optimal_theta_100 <- result_ridge_100$theta
+optimal_std_100 <- result_ridge_100$std
+optimal_lambda_100 <- result_ridge_100$lambda
+
+ridge_pred_train_100 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_100)
+ridge_pred_test_100 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_100)
+
+mse_ridge_train_100 <- mean((trainS$motor_UPDRS - ridge_pred_train_100)^2)
+mse_ridge_test_100 <- mean((testS$motor_UPDRS - ridge_pred_test_100)^2)
+
+cat("Lambda:", lambda, "\n")
+cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_train_100, "\n")
+cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_100, "\n")
+cat("Degree of freedom:", DF(lambda), "\n")
+```
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, ridge_pred_test_100, main = "Ridge Regression, lambda = 100", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+```{r, fig.width=5, fig.height=4, fig.pos="H"}
+lambda <- 1000
+result_ridge_1000 <- RidgeOpt(lambda)
+
+optimal_theta_1000 <- result_ridge_1000$theta
+optimal_std_1000 <- result_ridge_1000$std
+optimal_lambda_1000 <- result_ridge_1000$lambda
+
+ridge_pred_train_1000 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_1000)
+ridge_pred_test_1000 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_1000)
+
+mse_ridge_train_1000 <- mean((trainS$motor_UPDRS - ridge_pred_train_1000)^2)
+mse_ridge_test_1000 <- mean((testS$motor_UPDRS - ridge_pred_test_1000)^2)
+
+cat("Lambda:", lambda, "\n")
+cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_train_1000, "\n")
+cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_1000, "\n")
+cat("Degree of freedom:", DF(lambda), "\n")
+```
+```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
+plot(testS$motor_UPDRS, ridge_pred_test_1000, main = "Ridge Regression, lambda = 1000", 
+     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
+abline(a = 0, b = 1, col = "red")
+```
+
+
+
