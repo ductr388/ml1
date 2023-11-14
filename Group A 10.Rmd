@@ -1,7 +1,7 @@
 ---
 title: "Computer lab 1 block 1"
 author:
-- Sigme Cinar
+- Simge Cinar
 - Duc Tran
 - William Wiik
 date: "`r format(Sys.time(), '%d %B %Y')`"
@@ -427,18 +427,25 @@ which(min(result) == result)
 From figure 4, the model with k=8 has the lowest value for cross-entropy and is 
 considered to be the best k. 
 
-If the response has multinomial distribution, the maximum likelihood estimation is:
-\begin{align}
-L(Y_i=C_1, Y_i=C_2,..., Y_i=C_m|\theta) = \prod_{i=1}^N p_\theta(Y_i=C_m)
-\end{align}
+Cross-entropy for M classes $C_1, ...,C_M$ is defined as:
 
-where $Y_i$ is observation $i$, $N$ is number of observations, and $C_m$ is 
-class $m$.
+$$R\Big(Y, \hat p(Y)\Big) = - \sum_{i=1}^N\sum_{m=1}^M I(Y_i = C_m)log \hat p(Y_i=C_m)$$
+where the aim is to minimize the function. 
 
-The log-likelihood of equation 1 is:
-\begin{align}
-log L(Y_i=C_1, Y_i=C_2,..., Y_i=C_m) = \sum_{i=1}^N log p_\theta(Y_i=C_m)
-\end{align}
+When the probability of an observation $Y_i$ for the true class $C_m$ is low from 
+the model, cross-entropy will give a larger penalty compared to a higher probability.
+For example if the model had probability 10% for the true value of observation
+$Y_i$ cross-entropy would increase with $-log(0.1) \approx 2.3$. If the 
+model instead had the probability 49%, cross-entropy would increase with 
+$-log(0.49) \approx 0.7$.
+
+Misclassification as error function will only give information on how often the 
+model had wrong predictions but it does not give any information about how uncertain
+the model is for the true values of the data. If the data is assumed to be 
+multinomial distributed, the maximum-likelihood estimation will lead to the same
+formula as cross-entropy without the minus sign. Since maximum-likelihood seeks
+to maximize the function, the maximum-likelihood estimation will be the same as
+cross-entropy (since cross entropy seeks to minimize the function).
 
 
 
