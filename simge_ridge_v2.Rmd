@@ -15,7 +15,6 @@ library(caret)
 # Question 2)
 ```{r}
 df2_init <- read.csv("/Users/simgecinar/Desktop/ML_lab1/parkinsons.csv")
-#colnames(df2_init)
 df2 <- df2_init[, c("motor_UPDRS", "Jitter...", "Jitter.Abs.", "Jitter.RAP", "Jitter.PPQ5","Jitter.DDP", "Shimmer", "Shimmer.dB.", "Shimmer.APQ3", "Shimmer.APQ5","Shimmer.APQ11", "Shimmer.DDA", "NHR", "HNR", "RPDE", "DFA", "PPE")]
 ```
 
@@ -81,7 +80,7 @@ Ridge <- function(theta, std, lambda){
 }
 
 #optim() function minimizes
-RidgeOpt <- function(lambda){
+RidgeOpt <- function(lambda){ ## UPDATE
   # Define a new function to optimize
   my_fnc <- function(parameters){
     theta <- parameters[1:(length(parameters)-1)]
@@ -121,6 +120,9 @@ result_ridge_1 <- RidgeOpt(lambda)
 optimal_theta_1 <- result_ridge_1$theta
 optimal_std_1 <- result_ridge_1$std
 optimal_lambda_1 <- result_ridge_1$lambda
+optimal_theta_1
+optimal_std_1
+optimal_lambda_1
 
 ridge_pred_train_1 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_1)
 ridge_pred_test_1 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_1)
