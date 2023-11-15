@@ -12,37 +12,58 @@ library(psych)
 library(caret)
 ```
 
-# Question 2)
+# Assignment 2: Linear Regression and Ridge Regression
+
+The file "parkinson.csv" is composed of a range of biomedical voice measurements. Data consists of 5875 rows and 17 columns. The purpose is to predict Parkinson's disease score (motor_UPDRS) under the some following voice characteristics:
+\begin{itemize}
+\item Jitter(\%), Jitter(Abs), Jitter:RAP, Jitter:PPQ5, Jitter.DDP - Several measures of variation in fundamental frequency
+\item Shimmer, Shimmer(dB), Shimmer:APQ3, Shimmer:APQ5, Shimmer:APQ11, Shimmer:DDA - Several measures of variation in amplitude
+\item NHR, HNR- Two measures of ratio of noise to tonal components in the voice
+\item RPDE - A nonlinear dynamical complexity measure
+\item DFA - Signal fractal scaling exponent
+\item PPE - A nonlinear measure of fundamental frequency variation
+\end{itemize}
+
 ```{r}
-df2_init <- read.csv("/Users/simgecinar/Desktop/ML_lab1/parkinsons.csv")
+df2_init <- read.csv("parkinsons.csv")
 df2 <- df2_init[, c("motor_UPDRS", "Jitter...", "Jitter.Abs.", "Jitter.RAP", "Jitter.PPQ5","Jitter.DDP", "Shimmer", "Shimmer.dB.", "Shimmer.APQ3", "Shimmer.APQ5","Shimmer.APQ11", "Shimmer.DDA", "NHR", "HNR", "RPDE", "DFA", "PPE")]
 ```
 
-### Question 2.1)
-```{r}
-# Split train and test
-n=dim(df2)[1]
-set.seed(12345)
+## Question 2.1)
 
+**Question:** Divide it into training and test data (60/40) and scale it appropriately. In the coming steps, assume that motor_UPDRS is normally distributed and is a function of the voice characteristics, and since the data are scaled, no intercept is needed in the modelling. \
+
+**Answer:** The code is as follows:
+```{r}
+library(caret)
+# Split the data into training and test
+n <- dim(df2)[1]
+set.seed(12345)
 id <- sample(1:n, floor(n*0.6))
 train_data <- df2[id,]
 test_data <- df2[-id,]
 
-predictor_cols <- setdiff(names(train_data), "motor_UPDRS")
+# Scale the data
 scaler <- preProcess(train_data)
 trainS <- predict(scaler, train_data)
 testS <- predict(scaler, test_data)
 ```
 
-### Question 2.2)
+## Question 2.2)
+
+**Question:** Compute a linear regression model from the training data, estimate training and test MSE and comment on which variables contribute significantly to the model. \
+
+**Answer:** The summary of the linear regression model can be seen below. The variables "Jitter.Abs.", "Shimmer.APQ5 ", "Shimmer.APQ11", "NHR", "DFA" and "PPE" contribute significantly to the model.
 ```{r}
 # Linear regression model
 lm_model <- lm(motor_UPDRS ~ ., data = trainS)
 summary(lm_model)
 ```
 
+Train and test data is estimated with the given model and MSE is calculated. The corresponding values can be seen in the table below.
 ```{r}
 # Predictions on the train & test data
+predictor_cols <- setdiff(names(train_data), "motor_UPDRS")
 trainS_x <- trainS[, predictor_cols]
 testS_x <- testS[, predictor_cols]
 
@@ -56,15 +77,25 @@ cat("Mean Squared Error (MSE) on the training data:", mse_train, "\n")
 cat("Mean Squared Error (MSE) on the test data:", mse_test, "\n")
 ```
 
-```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
-plot(testS$motor_UPDRS, predS_test, main = "Linear Regression (Scaled Data)", 
-     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
-abline(a = 0, b = 1, col = "red")
-```
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|}
+  \hline
+  Training data & Test data  \\
+  \hline
+  0.8910814 & 0.8784096   \\
+  \hline
+\end{tabular}
+\caption{MSE on training and test data}
+\end{table}
 
-### Question 2.3)
+## Question 2.3)
+
+**Question**: Implement 4 following functions by using basic R commands only (no external packages):\
+
+**a)** *Loglikelihood* function that for a given parameter vector $\theta$ and dispersion $\sigma$ computes the log-likelihood function $logP(T\mid\theta,\sigma)$ for the stated model and the training data. \
+**Answer:**
 ```{r}
-# Define the functions
 Loglikelihood <- function(theta, std){
   n <- nrow(trainS_x)
   prediction <- as.matrix(trainS_x) %*% as.matrix(theta)
@@ -73,33 +104,40 @@ Loglikelihood <- function(theta, std){
   likelihood <- (-(n/2) * log(2*pi*std^2) - (1/(2*std^2)) * sum(res^2))
   return(likelihood)
 }
+```
 
+**b)** *Ridge* function that for given vector $\theta$, scalar $\sigma$ and scalar $\lambda$ uses function from 3a and adds up a Ridge penalty $\lambda\lVert \mathbf{\theta} \rVert^2$ to the minus loglikelihood. \
+**Answer:**
+```{r}
 Ridge <- function(theta, std, lambda){
-  likelihood_ridge <- -Loglikelihood(theta, std) + (lambda/2)*sum(theta^2)
+  likelihood_ridge <- -Loglikelihood(theta, std) + lambda*sum(theta^2)
   return(likelihood_ridge)
 }
+```
 
+**c)** *RidgeOpt* function that depends on scalar $\lambda$, uses function from 3b and function optim() with method="BFGS" to find optimal $\theta$ and $\sigma$ for the given $\lambda$. \
+**Answer:**
+```{r}
 #optim() function minimizes
-RidgeOpt <- function(lambda){ ## UPDATE
+RidgeOpt <- function(lambda){ # optimize theta and std with given lambda
   # Define a new function to optimize
   my_fnc <- function(parameters){
     theta <- parameters[1:(length(parameters)-1)]
     std <- parameters[length(parameters)]
     return(Ridge(theta, std, lambda))
   }
-  initial_values <- c(rep(0, ncol(trainS_x)), 1)
+  initial_values <- c(rep(0, ncol(trainS_x)), 1) # give 0 to theta and 1 to sigma to initialize
   
   optimal_values <- optim(par = initial_values, fn = my_fnc, method = "BFGS")$par
-  optimal_theta <- optimal_values[1:length(predictor_cols)]
-  optimal_std <- optimal_values[length(predictor_cols) + 1]
-  optimal_lambda <- optimal_values[length(optimal_values)]
-  
-  result_list <- list(theta = optimal_theta, std = optimal_std, lambda = optimal_lambda)
+  optimal_theta <- optimal_values[1:length(predictor_cols)] 
+  optimal_std <- optimal_values[length(optimal_values)] #the last one is sigma
+  result_list <- list(lambda = lambda, theta = optimal_theta, std = optimal_std)
   return(result_list)
 }
 ```
 
-Formula for the degree of freedom in ridge regression is as follows:
+**d)** *DF* function that for a given scalar $\lambda$ computes the degrees of freedom of the Ridge model based on the training data. \
+**Answer:** Formula for the degree of freedom in ridge regression is as follows:
 $$
 df(\lambda) = trace(X(X^TX +\lambda I)^{-1}X^T)
 $$
@@ -112,7 +150,11 @@ DF <- function(lambda){
 }
 ```
 
-### Question 2.4)
+## Question 2.4)
+
+**Question:** By using function RidgeOpt, compute optimal **$\theta$** parameters for $\lambda = 1$, $\lambda = 100$ and $\lambda = 1000$. Use the estimated parameters to predict the motor_UPDRS values for the training and test data and report the training and test MSE values. Which penalty parameter is most appropriate among the selected ones? Compute and compare the degrees of freedom of these models and make appropriate conclusions. \
+
+**Answer:**
 ```{r}
 lambda <- 1
 result_ridge_1 <- RidgeOpt(lambda)
@@ -120,9 +162,6 @@ result_ridge_1 <- RidgeOpt(lambda)
 optimal_theta_1 <- result_ridge_1$theta
 optimal_std_1 <- result_ridge_1$std
 optimal_lambda_1 <- result_ridge_1$lambda
-optimal_theta_1
-optimal_std_1
-optimal_lambda_1
 
 ridge_pred_train_1 <- as.matrix(trainS_x) %*% as.matrix(optimal_theta_1)
 ridge_pred_test_1 <- as.matrix(testS_x) %*% as.matrix(optimal_theta_1)
@@ -135,12 +174,6 @@ cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_tra
 cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_1, "\n")
 cat("Degree of freedom:", DF(lambda), "\n")
 ```
-```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
-plot(testS$motor_UPDRS, ridge_pred_test_1, main = "Ridge Regression, lambda = 1", 
-     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
-abline(a = 0, b = 1, col = "red")
-```
-
 ```{r}
 lambda <- 100
 result_ridge_100 <- RidgeOpt(lambda)
@@ -160,13 +193,7 @@ cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_tra
 cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_100, "\n")
 cat("Degree of freedom:", DF(lambda), "\n")
 ```
-```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
-plot(testS$motor_UPDRS, ridge_pred_test_100, main = "Ridge Regression, lambda = 100", 
-     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
-abline(a = 0, b = 1, col = "red")
-```
-
-```{r, fig.width=5, fig.height=4, fig.pos="H"}
+```{r}
 lambda <- 1000
 result_ridge_1000 <- RidgeOpt(lambda)
 
@@ -185,11 +212,20 @@ cat("Mean Squared Error (MSE) ridge regression on training data:", mse_ridge_tra
 cat("Mean Squared Error (MSE) ridge regression on test data:", mse_ridge_test_1000, "\n")
 cat("Degree of freedom:", DF(lambda), "\n")
 ```
-```{r, fig.width=5, fig.height=4, fig.pos="H", fig.align='center'}
-plot(testS$motor_UPDRS, ridge_pred_test_1000, main = "Ridge Regression, lambda = 1000", 
-     xlab = "Actual Values", ylab = "Predicted Values", pch = 19, col = "blue")
-abline(a = 0, b = 1, col = "red")
-```
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|c|}
+  \hline
+  Lambda & MSE training data & MSE test data & Degrees of freedom  \\
+  \hline
+  1 & 0.8915985  & 0.8779719  & 13.86164  \\
+  \hline
+  100 & 0.8955783  & 0.8844111  & 9.91065   \\
+  \hline
+  1000 & 0.92772  & 0.9158185  & 5.627443   \\
+  \hline
+\end{tabular}
+\caption{Ridge Regression Comparison}
+\end{table}
 
-
-
+The comparison result can be seen in the table above. ADD EXPLANATION
