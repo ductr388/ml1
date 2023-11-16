@@ -746,7 +746,7 @@ features? Motivate your answer.
 
 
 **Answer**
-We believe that age and plasma glucose concentration are not suitable variables for classifying diabetes because there's no clear relationship with the disease.
+We believe that diabetes is not easy to classify by a standard logistic regression model that uses age and plasma glucose concentration as variables because they do not separate the diabetes classes well.
 
 
 ## Question 3.2
@@ -781,8 +781,6 @@ confusion <- table(diabetes_df$diabetes, pred)
 misclass_rate <- (confusion[1,2] + confusion[2,1]) / sum(confusion)
 
 
-
-
 ```
 
 ```{r echo=FALSE}
@@ -794,7 +792,6 @@ knitr::kable(as.data.frame(round(misclass_rate,2)), col.names = "Misclassificati
 ```
 
 The misclassification error is 0.26.
-
 
 
 **Question:**
@@ -866,8 +863,8 @@ Comment whether the decision boundary seems to catch the data distribution well.
 
 **Answer**
 
-The decision boundary appears to capture the data distribution appropriately. For instance, the cluster with Plasma glucose concentration between 75 to 150 and age 20 to 30 is correctly predicted as class "no" by the decision boundary, aligning with the actual class (figure Y). 
-However, it is notable that the boundary between classes does not show a linear pattern in figure Y, which means that
+The decision boundary appears to capture the data distribution OK. For instance, the cluster with Plasma glucose concentration between 75 to 150 and age 20 to 30 is correctly predicted as class "no" by the decision boundary, aligning with the actual class (figure Y). 
+However, it is notable that the boundary between diabetes classes does not show a linear pattern in figure Y, which means that
 a linear decision boundary is never going to catch the data distribution very well.
 
 
@@ -881,7 +878,7 @@ using these plots.
 
 
 ```{r}
-library("ggpubr")
+library(ggpubr)
 
 # Using 0.2 as the classification threshold
 pred <- predict(model, newdata = diabetes_df, type = "response")
@@ -994,15 +991,9 @@ regression model? How have the basis expansion trick affected the shape of the d
 
 **Answer** 
 
-The misclassification rate is one percentage point lower than the model in 3.2, indicating a slight improvement.
+The misclassification rate is one percentage point lower than the model in 3.2, indicating a slight improvement. However, this model is more complex and the parameters are more harder to interpret than the model in 3.2, which could argue that the model in 3.2 is better.
 
-The decision boundary's shape is not linear, as seen in 3.4, but the data distribution of the predicted values remains very similar.
-
-
-
-
-
-
+The decision boundary's shape is not linear, but the data distribution of the predicted values remains very similar as in figure Y.
 
 
 
